@@ -2,7 +2,7 @@
 //var crypto = require("crypto");
 
 const clientId = "327e131484724396b28b9f881dfdd057";
-const redirectUrl = "http://localhost:5500/authcallback";
+const redirectUrl = "http://localhost:5500/index";
 
 const authorizationEndpoint = "https://accounts.spotify.com/authorize";
 const tokenEndpoint = "https://accounts.spotify.com/api/token";
@@ -42,28 +42,70 @@ const code = args.get("code");
 
 console.log("Authorization Code: ", code);
 
-// If we find a code, we're in a callback, do a token exchange
 window.onload = function () {
-  console.log("Authorization code:", code);
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code"); // Extract the authorization code from the URL
 
+  const url = new URL(window.location.href);
+  url.searchParams.delete("code");
+
+  // Update the URL without refreshing the page
+  window.history.replaceState({}, document.title, url.toString());
+
+  // If we find a code, we're in a callback, do a token exchange
   if (code) {
-    const token = getToken(code);
-    currentToken.save(token);
+    console.log("Authorization code:", code);
+    localStorage.setItem("authCode", code);
+    params.delete("code");
 
-    const url = new URL(window.location.href);
-
-    // Remove the 'code' parameter from the URL
-    url.searchParams.delete("code");
-
-    // Update the URL without refreshing the page
-    window.history.replaceState({}, document.title, url.toString());
+    // Retrieve the code verifier from localStorage
+    const codeVerifier = localStorage.getItem("code_verifier");
+    if (codeVerifier) {
+      // Now exchange the code for an access token
+      exchangeCodeForToken(code);
+    } else {
+      console.error("Code verifier not found.");
+    }
+  } else {
+    console.error("No authorization code found in the URL.");
   }
 };
 
-// If we have a token, we're logged in, so fetch user data and render logged in template
-// if (currentToken.access_token) {
-//   const userData = await getUserData();
-// }
+// Exchange the code for a token
+async function exchangeCodeForToken(authCode) {
+  const tokenUrl = "https://accounts.spotify.com/api/token";
+  const clientId = "327e131484724396b28b9f881dfdd057";
+  const redirectUri = "http://localhost:5500/index";
+  let codeVerifier = localStorage.getItem("code_verifier");
+  const payload = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code: authCode,
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
+    }),
+  };
+
+  const response = await fetch(tokenUrl, payload)
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.access_token) {
+        console.log("Access Token:", data.access_token);
+        localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("refreshToken", data.refresh_token);
+      } else {
+        console.error("Failed to obtain access token.");
+      }
+    })
+    .catch((error) => {
+      console.error("Error exchanging code for token:", error);
+    });
+}
 
 // Authorization Functions
 async function redirectToSpotifyAuth() {
