@@ -54,8 +54,8 @@
           .then((data) => {
             if (data.access_token) {
               console.log("Access Token:", data.access_token);
-              // You can store the access token in localStorage or sessionStorage
               localStorage.setItem("access_token", data.access_token);
+              //localStorage.setItem("refreshToken", data.refresh_token);
             } else {
               console.error("Failed to obtain access token.");
             }

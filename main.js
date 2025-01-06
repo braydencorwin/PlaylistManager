@@ -5,7 +5,7 @@ const clientId = "327e131484724396b28b9f881dfdd057";
 const redirectUrl = "http://localhost:5500/authcallback";
 
 const authorizationEndpoint = "https://accounts.spotify.com/authorize";
-const tokenEndpoint = "https://api.spotify.com/api/token";
+const tokenEndpoint = "https://accounts.spotify.com/api/token";
 const scope =
   "user-read-private user-read-email user-top-read playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-modify user-library-read ugc-image-upload";
 
@@ -121,5 +121,5 @@ async function redirectToSpotifyAuth() {
 const loginButton = document.getElementById("spotifyLogin");
 
 loginButton.addEventListener("click", () => {
-  loginWithSpotifyClick();
+  redirectToSpotifyAuth();
 });
