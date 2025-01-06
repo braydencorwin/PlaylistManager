@@ -95,6 +95,7 @@ async function exchangeCodeForToken(authCode) {
     .then((response) => response.json())
     .then((data) => {
       if (data.access_token) {
+        let accessTokenAcquiredAt = Date.now();
         console.log("Access Token:", data.access_token);
         localStorage.setItem("access_token", data.access_token);
         localStorage.setItem("refreshToken", data.refresh_token);
@@ -156,6 +157,38 @@ async function redirectToSpotifyAuth() {
 
   // Redirect the user to Spotify's authorization page
   window.location.href = authUrl.toString();
+}
+
+let expiresIn = 3600;
+const bufferMinutes = 5;
+
+function isAccessTokenExpired() {
+  const expirationTime = accessTokenAcquiredAt + expiresIn * 1000; // Convert expires_in to milliseconds
+  const bufferTime = bufferMinutes * 60 * 1000; // refresh token proactively
+  return Date.now() > expirationTime - bufferTime; // Check if current time is greater than expiration time
+}
+
+async function getRefreshToken() {
+  const refreshToken = localStorage.getItem("refreshToken");
+
+  const payload = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: clientId,
+    }),
+  };
+  const body = await fetch(tokenEndpoint, payload);
+  const response = await body.json();
+
+  localStorage.setItem("access_token", response.accessToken);
+  if (response.refreshToken) {
+    localStorage.setItem("refresh_token", response.refreshToken);
+  }
 }
 
 //Login button
