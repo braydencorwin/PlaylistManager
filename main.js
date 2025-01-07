@@ -62,7 +62,7 @@ window.onload = function () {
     const codeVerifier = localStorage.getItem("code_verifier");
     if (codeVerifier) {
       // Now exchange the code for an access token
-      exchangeCodeForToken(code);
+      exchangeCodeForToken(code).then(() => getUserProfile());
     } else {
       console.error("Code verifier not found.");
     }
@@ -95,9 +95,9 @@ async function exchangeCodeForToken(authCode) {
     .then((response) => response.json())
     .then((data) => {
       if (data.access_token) {
-        let accessTokenAcquiredAt = Date.now();
         console.log("Access Token:", data.access_token);
         localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("expiry", Date.now());
         localStorage.setItem("refreshToken", data.refresh_token);
       } else {
         console.error("Failed to obtain access token.");
@@ -160,9 +160,11 @@ async function redirectToSpotifyAuth() {
 }
 
 let expiresIn = 3600;
+
 const bufferMinutes = 5;
 
 function isAccessTokenExpired() {
+  let accessTokenAcquiredAt = localStorage.getItem("expiry");
   const expirationTime = accessTokenAcquiredAt + expiresIn * 1000; // Convert expires_in to milliseconds
   const bufferTime = bufferMinutes * 60 * 1000; // refresh token proactively
   return Date.now() > expirationTime - bufferTime; // Check if current time is greater than expiration time
@@ -198,3 +200,89 @@ const loginButton = document.getElementById("spotifyLogin");
 loginButton.addEventListener("click", () => {
   redirectToSpotifyAuth();
 });
+
+//Refresh Token
+async function refreshToken() {
+  let accessToken = localStorage.getItem("access_token");
+
+  if (isAccessTokenExpired()) {
+    //check token valid
+    console.log("Access token expired. Refreshing token...");
+    await refreshAccessToken(); // Refresh token if expired
+  }
+}
+
+//API Calls
+const userId = localStorage.getItem("Id");
+const userProfileEndpoint = "https://api.spotify.com/v1/me";
+const playlistsEndpoint = `https://api.spotify.com/v1/users/${userId}/playlists`;
+
+//Get User Profile
+async function getUserProfile() {
+  try {
+    // Refresh token before making the request if needed
+    await refreshToken();
+    const accessToken = localStorage.getItem("access_token");
+    const data = await fetchData(userProfileEndpoint, {
+      headers: { Authorization: "Bearer " + accessToken },
+    });
+
+    // Save relevant profile data to localStorage
+    localStorage.setItem("Id", data.id);
+    const userName = data.display_name; // You can store or use this data as needed
+    return { userName, userId: data.id };
+  } catch (error) {
+    console.error("Failed to get user profile", error);
+  }
+}
+
+//Fetch Function
+async function fetchData(url) {
+  try {
+    const accessToken = localStorage.getItem("access_token");
+    const response = await fetch(url, {
+      headers: { Authorization: "Bearer " + accessToken },
+    });
+    if (!response.ok) {
+      throw new Error(`Error fetching data: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+}
+
+//Get User's Playlists
+async function getUserPlaylists() {
+  try {
+    // Refresh token before making the request if needed
+    await refreshToken();
+
+    const data = await fetchData(playlistsEndpoint);
+
+    // You can store or use playlist data as needed
+    console.log("Playlists:", data.items);
+    return data.items; // Returns the list of playlists
+  } catch (error) {
+    console.error("Failed to get user playlists", error);
+  }
+}
+
+//DOM Manipulation
+function playlistDisplay(arr) {
+  const ul = document.createElement("ul");
+  for (let i = 0; i < 30; i++) {
+    const li = document.createElement("li");
+    li.textContent = arr[i];
+    ul.appendChild(li);
+  }
+  document.getElementById(myPlaylists).appendChild(ul);
+}
+
+const playlistButton = document.getElementById("getPlaylists");
+const myPlaylists = document.getElementById("my_playlists");
+
+playlistButton.addEventListener("click", () =>
+  getUserPlaylists().then((data) => playlistDisplay(myPlaylists, data))
+);
