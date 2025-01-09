@@ -257,6 +257,7 @@ async function fetchData(url) {
 }
 
 //Get User's Playlists
+const playlistsArr = [];
 async function getUserPlaylists() {
   const userId = localStorage.getItem("Id");
   const playlistsEndpoint = `https://api.spotify.com/v1/users/${userId}/playlists`;
@@ -266,8 +267,11 @@ async function getUserPlaylists() {
 
     const data = await fetchData(playlistsEndpoint);
 
-    console.log(data);
     console.log("Playlists:", data.items);
+    for (let elm of data.items) {
+      playlistsArr.push(elm);
+    }
+
     return data.items; // Returns the list of playlists
   } catch (error) {
     console.error("Failed to get user playlists", error);
@@ -276,24 +280,35 @@ async function getUserPlaylists() {
 
 //DOM Manipulation
 const playlistButton = document.getElementById("getPlaylists");
-const myPlaylists = document.getElementById("playlist-grid");
+const theGrid = document.getElementById("display-grid");
 
 function playlistCardBuilder(playlist) {
   //Build Out Elements of Card
   const card = document.createElement("div");
   card.classList.add("playlist-card");
+  card.setAttribute("data-id", playlist.id);
 
   const cardBody = document.createElement("div");
   cardBody.classList.add("card-body");
 
   const img = document.createElement("img");
   img.classList.add("playlist-img");
-  if (playlist.images[1] != null) {
+  if (
+    playlist.images &&
+    playlist.images.length > 1 &&
+    playlist.images[1] &&
+    playlist.images[1].url
+  ) {
     img.setAttribute("src", playlist.images[1].url);
-  } else if (playlist.images[0] != null) {
+  } else if (
+    playlist.images &&
+    playlist.images.length > 0 &&
+    playlist.images[0] &&
+    playlist.images[0].url
+  ) {
     img.setAttribute("src", playlist.images[0].url);
   } else {
-    img.setAttribute("src", "");
+    img.setAttribute("src", "Assets/Image-not-found.png");
   }
 
   img.setAttribute("alt", "Playlist Mosaic");
@@ -345,19 +360,39 @@ function limitString(str, limit, indicator = "...") {
   }
 }
 
-playlistButton.addEventListener("click", () =>
-  getUserPlaylists().then((data) => {
-    for (let i = 0; i < data.length; i++) {
-      myPlaylists.append(playlistCardBuilder(data[i]));
-    }
-  })
-);
+const maxDisplayed = 30;
+let currentIndex = 0;
+
+function buildDisplayGrid(cardBuilder, arr, section) {
+  console.log(currentIndex);
+  arr.slice(currentIndex, currentIndex + maxDisplayed).forEach((item) => {
+    section.append(cardBuilder(item));
+    console.log(item.name);
+  });
+
+  currentIndex += maxDisplayed;
+  console.log(currentIndex);
+  if (currentIndex < arr.length) {
+    const loadMore = document.createElement("button");
+    loadMore.textContent = "Load More";
+    loadMore.classList.add("load-more", "btn");
+
+    section.appendChild(loadMore);
+    loadMore.addEventListener("click", () => {
+      buildDisplayGrid(cardBuilder, arr, section);
+      loadMore.remove();
+    });
+  }
+}
 
 //Welcome Header
 function setupUi(userName) {
   loginModal.classList.add("not-visible");
   const welcomeUser = document.getElementById("welcomeUser");
-  welcomeUser.textContent = "Hello, " + userName; //ADD getPLaylists for instant grid onload
+  welcomeUser.textContent = "Hello, " + userName;
+  getUserPlaylists().then((data) => {
+    buildDisplayGrid(playlistCardBuilder, data, theGrid);
+  });
 }
 
 //NavLinks
@@ -368,8 +403,17 @@ const active = "active";
 const navlinks = document.querySelectorAll(navlink);
 
 for (const elm of navlinks) {
-  elm.addEventListener("click", function () {
+  elm.addEventListener("click", () => {
+    if (this.classList.contains(active)) {
+      return; // Do nothing if already active
+    }
+
     setActive(this, navlink);
+
+    const linkId = this.id;
+    if (linkId == "getPlaylists") {
+      buildDisplayGrid(playlistCardBuilder, playlistsArr, theGrid);
+    }
   });
 }
 
