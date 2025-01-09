@@ -258,6 +258,7 @@ async function fetchData(url) {
 
 //Get User's Playlists
 const playlistsArr = [];
+
 async function getUserPlaylists() {
   const userId = localStorage.getItem("Id");
   const playlistsEndpoint = `https://api.spotify.com/v1/users/${userId}/playlists`;
@@ -278,11 +279,20 @@ async function getUserPlaylists() {
   }
 }
 
+//Favorites Handling
+
+function isFavoritePlaylist(id) {
+  const currentPlaylistFavs =
+    JSON.parse(localStorage.getItem("favorite-playlists")) || [];
+  return currentPlaylistFavs.includes(id);
+}
+
 //DOM Manipulation
-const playlistButton = document.getElementById("getPlaylists");
 const theGrid = document.getElementById("display-grid");
 
 function playlistCardBuilder(playlist) {
+  //Get Favorites
+
   //Build Out Elements of Card
   const card = document.createElement("div");
   card.classList.add("playlist-card");
@@ -338,13 +348,55 @@ function playlistCardBuilder(playlist) {
   trackCount.classList.add("playlist-track-count");
   trackCount.textContent = `Tracks: ${playlist.tracks.total}`;
 
+  const favoriteBtn = document.createElement("i");
+  favoriteBtn.classList.add("fa-regular", "fa-heart");
+  favoriteBtn.style.color = "red";
+
+  favoriteBtn.addEventListener("click", (e) => {
+    const currentPlaylistFavs =
+      JSON.parse(localStorage.getItem("favorite-playlists")) || [];
+    const element = e.target;
+    const playlistId = element.closest("[data-id]").getAttribute("data-id");
+    console.log(playlistId);
+    // Check if the playlistId is in the favorites list
+    if (isFavoritePlaylist(playlistId)) {
+      // Remove the playlistId from the array
+      const index = currentPlaylistFavs.indexOf(playlistId);
+      if (index !== -1) {
+        currentPlaylistFavs.splice(index, 1); // Remove from the array
+      }
+      // Toggle the icon class
+      element.classList.remove("fa-solid");
+      element.classList.add("fa-regular");
+    } else {
+      // Add the playlistId to the array
+      if (!currentPlaylistFavs.includes(playlistId)) {
+        currentPlaylistFavs.push(playlistId); // Only add if not already present
+      }
+      // Toggle the icon class
+      element.classList.remove("fa-regular");
+      element.classList.add("fa-solid");
+    }
+
+    // Save the updated list back to localStorage
+    localStorage.setItem(
+      "favorite-playlists",
+      JSON.stringify(currentPlaylistFavs)
+    );
+  });
+
+  if (isFavoritePlaylist(playlist.id)) {
+    favoriteBtn.classList.remove("fa-regular");
+    favoriteBtn.classList.add("fa-solid");
+  }
+
   //Put The Card Together (Bottom => Top)
 
   playlistDetails.append(playlistOwner, trackCount);
 
   titleContainer.append(PlaylistName, PlaylistDescription);
 
-  cardContent.append(titleContainer, playlistDetails);
+  cardContent.append(favoriteBtn, titleContainer, playlistDetails);
 
   cardBody.append(img, cardContent);
   card.append(cardBody);
