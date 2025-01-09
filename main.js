@@ -9,6 +9,9 @@ const tokenEndpoint = "https://accounts.spotify.com/api/token";
 const scope =
   "user-read-private user-read-email user-top-read playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-modify user-library-read ugc-image-upload";
 
+//DOM Variables
+const loginModal = document.getElementById("login");
+
 //Manage Current token in local storage
 const currentToken = {
   get access_token() {
@@ -62,7 +65,9 @@ window.onload = function () {
     const codeVerifier = localStorage.getItem("code_verifier");
     if (codeVerifier) {
       // Now exchange the code for an access token
-      exchangeCodeForToken(code).then(() => getUserProfile());
+      exchangeCodeForToken(code)
+        .then(() => getUserProfile())
+        .then((name) => setupUi(name));
     } else {
       console.error("Code verifier not found.");
     }
@@ -213,9 +218,7 @@ async function refreshToken() {
 }
 
 //API Calls
-const userId = localStorage.getItem("Id");
 const userProfileEndpoint = "https://api.spotify.com/v1/me";
-const playlistsEndpoint = `https://api.spotify.com/v1/users/${userId}/playlists`;
 
 //Get User Profile
 async function getUserProfile() {
@@ -229,8 +232,8 @@ async function getUserProfile() {
 
     // Save relevant profile data to localStorage
     localStorage.setItem("Id", data.id);
-    const userName = data.display_name; // You can store or use this data as needed
-    return { userName, userId: data.id };
+    const userName = data.display_name;
+    return userName;
   } catch (error) {
     console.error("Failed to get user profile", error);
   }
@@ -255,13 +258,15 @@ async function fetchData(url) {
 
 //Get User's Playlists
 async function getUserPlaylists() {
+  const userId = localStorage.getItem("Id");
+  const playlistsEndpoint = `https://api.spotify.com/v1/users/${userId}/playlists`;
   try {
     // Refresh token before making the request if needed
     await refreshToken();
 
     const data = await fetchData(playlistsEndpoint);
 
-    // You can store or use playlist data as needed
+    console.log(data);
     console.log("Playlists:", data.items);
     return data.items; // Returns the list of playlists
   } catch (error) {
@@ -270,19 +275,108 @@ async function getUserPlaylists() {
 }
 
 //DOM Manipulation
-function playlistDisplay(arr) {
-  const ul = document.createElement("ul");
-  for (let i = 0; i < 30; i++) {
-    const li = document.createElement("li");
-    li.textContent = arr[i];
-    ul.appendChild(li);
+const playlistButton = document.getElementById("getPlaylists");
+const myPlaylists = document.getElementById("playlist-grid");
+
+function playlistCardBuilder(playlist) {
+  //Build Out Elements of Card
+  const card = document.createElement("div");
+  card.classList.add("playlist-card");
+
+  const cardBody = document.createElement("div");
+  cardBody.classList.add("card-body");
+
+  const img = document.createElement("img");
+  img.classList.add("playlist-img");
+  if (playlist.images[1] != null) {
+    img.setAttribute("src", playlist.images[1].url);
+  } else if (playlist.images[0] != null) {
+    img.setAttribute("src", playlist.images[0].url);
+  } else {
+    img.setAttribute("src", "");
   }
-  document.getElementById(myPlaylists).appendChild(ul);
+
+  img.setAttribute("alt", "Playlist Mosaic");
+
+  const cardContent = document.createElement("div");
+  cardContent.classList.add("card-content");
+
+  const titleContainer = document.createElement("div");
+  titleContainer.classList.add("playlist-title-container");
+
+  const PlaylistName = document.createElement("h3");
+  PlaylistName.classList.add("playlist-name");
+  PlaylistName.textContent = playlist.name;
+
+  const PlaylistDescription = document.createElement("p");
+  PlaylistDescription.classList.add("playlist-description");
+  PlaylistDescription.textContent = limitString(playlist.description, 50);
+
+  const playlistDetails = document.createElement("div");
+  playlistDetails.classList.add("playlist-details");
+
+  const playlistOwner = document.createElement("span");
+  playlistOwner.classList.add("playlist-owner");
+  playlistOwner.textContent = playlist.owner.display_name;
+
+  const trackCount = document.createElement("span");
+  trackCount.classList.add("playlist-track-count");
+  trackCount.textContent = `Tracks: ${playlist.tracks.total}`;
+
+  //Put The Card Together (Bottom => Top)
+
+  playlistDetails.append(playlistOwner, trackCount);
+
+  titleContainer.append(PlaylistName, PlaylistDescription);
+
+  cardContent.append(titleContainer, playlistDetails);
+
+  cardBody.append(img, cardContent);
+  card.append(cardBody);
+
+  return card;
 }
 
-const playlistButton = document.getElementById("getPlaylists");
-const myPlaylists = document.getElementById("my_playlists");
+function limitString(str, limit, indicator = "...") {
+  if (str.length <= limit) {
+    return str;
+  } else {
+    return str.substring(0, limit) + indicator;
+  }
+}
 
 playlistButton.addEventListener("click", () =>
-  getUserPlaylists().then((data) => playlistDisplay(myPlaylists, data))
+  getUserPlaylists().then((data) => {
+    for (let i = 0; i < data.length; i++) {
+      myPlaylists.append(playlistCardBuilder(data[i]));
+    }
+  })
 );
+
+//Welcome Header
+function setupUi(userName) {
+  loginModal.classList.add("not-visible");
+  const welcomeUser = document.getElementById("welcomeUser");
+  welcomeUser.textContent = "Hello, " + userName; //ADD getPLaylists for instant grid onload
+}
+
+//NavLinks
+
+const navlink = ".navlink";
+const active = "active";
+
+const navlinks = document.querySelectorAll(navlink);
+
+for (const elm of navlinks) {
+  elm.addEventListener("click", function () {
+    setActive(this, navlink);
+  });
+}
+
+const setActive = (elm, selector) => {
+  const activeElement = document.querySelector(`${selector}.${active}`);
+  if (activeElement != null) {
+    activeElement.classList.remove(active);
+  }
+  elm.classList.add(active);
+};

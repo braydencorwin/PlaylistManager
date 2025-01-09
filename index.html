@@ -3,30 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="Styles/base.css" />
+    <link rel="stylesheet" href="Styles/styles.css" />
     <title>Playlist Manager</title>
   </head>
   <body>
-    <div class="Login Modal">
+    <div class="site-wrapper">
+      <div id="login" class="full-site-modal modal">
         <h1>Welcome To Playlist Manager!</h1>
         <h3>Sign in with Spotify to continue!</h3>
-        <button  class="Loginbtn btn" id="spotifyLogin">Login With Spotify</button>
-         
-        </button>
+        <a class="round-pill btn btn-primary" id="spotifyLogin"
+          >Login With Spotify</a
+        >
       </div>
-      
-    <div class="main">
-      
-      <div class="logged_in">
-        <span id="welcomeUser"></span>
-          <div class="playlists">
-            <div class="my_playlists">
-              <span>My Playlists</span>
-              <button id="getPlaylists">See My Playlists</button>
+
+      <div class="main">
+        <div class="logged_in">
+          <span id="welcomeUser" class="header-md"></span>
+          <div class="navbar-container">
+              <ul class="navbar ul-defaults-none">
+                <li><a id="getPlaylists" class="navlink">All Playlists</a></li>
+                <li><a class="navlink">Favorites</a></li>
+                <li><a class="navlink">My Stats</a></li>
+                <li><a class="navlink">Create New</a></li>
+            </div>
+            <div id="playlist-grid" class="grid playlist-grid">
+                </div>
+              </div>
             </div>
           </div>
+        </div>
       </div>
-    </div>  
-    <script type="module" src='main.js'></script>
-  </body>
+    </div>
 
+    <script type="module" src="main.js"></script>
+  </body>
 </html>
