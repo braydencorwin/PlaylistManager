@@ -46,6 +46,10 @@ const code = args.get("code");
 console.log("Authorization Code: ", code);
 
 window.onload = function () {
+  const isLoggedIn = localStorage.getItem("isLoggedIn");
+  if (!isLoggedIn) {
+    loginModal.classList.add("visible");
+  }
   const params = new URLSearchParams(window.location.search);
   const code = params.get("code"); // Extract the authorization code from the URL
 
@@ -208,13 +212,22 @@ loginButton.addEventListener("click", () => {
 
 //Refresh Token
 async function refreshToken() {
-  let accessToken = localStorage.getItem("access_token");
-
   if (isAccessTokenExpired()) {
     //check token valid
     console.log("Access token expired. Refreshing token...");
     await refreshAccessToken(); // Refresh token if expired
   }
+}
+
+//Welcome Header
+function setupUi(userName) {
+  localStorage.setItem("isLoggedIn", "true");
+  loginModal.classList.remove("visible");
+  const welcomeUser = document.getElementById("welcomeUser");
+  welcomeUser.textContent = "Hello, " + userName;
+  getUserPlaylists().then((data) => {
+    buildDisplayGrid(playlistCardBuilder, data, theGrid);
+  });
 }
 
 //API Calls
@@ -279,6 +292,18 @@ async function getUserPlaylists() {
   }
 }
 
+async function getUserPlaylistById(id) {
+  const endpoint = `https://api.spotify.com/v1/playlists/${id}`;
+
+  try {
+    const playlistData = await fetchData(endpoint);
+    console.log(playlistData);
+    return playlistData;
+  } catch (error) {
+    console.error("Failed to find playlist", error);
+  }
+}
+
 //Favorites Handling
 
 function isFavoritePlaylist(id) {
@@ -290,6 +315,7 @@ function isFavoritePlaylist(id) {
 //DOM Manipulation
 const theGrid = document.getElementById("display-grid");
 
+//playlist Grid
 function playlistCardBuilder(playlist) {
   //Get Favorites
 
@@ -436,15 +462,20 @@ function buildDisplayGrid(cardBuilder, arr, section, index = 0) {
   }
 }
 
-//Welcome Header
-function setupUi(userName) {
-  loginModal.classList.add("not-visible");
-  const welcomeUser = document.getElementById("welcomeUser");
-  welcomeUser.textContent = "Hello, " + userName;
-  getUserPlaylists().then((data) => {
-    buildDisplayGrid(playlistCardBuilder, data, theGrid);
+//PLaylist Track Modal
+const playlistCards = document.querySelectorAll("[data-id]");
+
+for (let elm of playlistCards) {
+  elm.addEventListener("click", (e) => {
+    const playlist = e.target;
+    const playlistId = playlist.getAttribute("[data-id]");
+    getUserPlaylistById(playlistId).then((playlist) =>
+      tracklistModalBuilder(playlist)
+    );
   });
 }
+
+function tracklistModalBuilder(playlist) {}
 
 //NavLinks
 
@@ -463,6 +494,9 @@ for (const elm of navlinks) {
     setActive(elm, navlink);
     const linkId = elm.id;
     if (linkId === "getPlaylists") {
+      if (playlistsArr.length === 0) {
+        noResultsMessage(theGrid, "Try creating some playlists!");
+      }
       buildDisplayGrid(playlistCardBuilder, playlistsArr, theGrid);
     } else if (linkId === "getFavorites") {
       const currentFavorites =
