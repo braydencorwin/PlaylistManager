@@ -272,7 +272,7 @@ async function getUserPlaylists() {
     for (let elm of data.items) {
       playlistsArr.push(elm);
     }
-
+    console.log(playlistsArr);
     return data.items; // Returns the list of playlists
   } catch (error) {
     console.error("Failed to get user playlists", error);
@@ -413,25 +413,24 @@ function limitString(str, limit, indicator = "...") {
 }
 
 const maxDisplayed = 30;
-let currentIndex = 0;
 
-function buildDisplayGrid(cardBuilder, arr, section) {
-  console.log(currentIndex);
-  arr.slice(currentIndex, currentIndex + maxDisplayed).forEach((item) => {
+function buildDisplayGrid(cardBuilder, arr, section, index = 0) {
+  console.log(index);
+  arr.slice(index, index + maxDisplayed).forEach((item) => {
     section.append(cardBuilder(item));
     console.log(item.name);
   });
 
-  currentIndex += maxDisplayed;
-  console.log(currentIndex);
-  if (currentIndex < arr.length) {
+  index += maxDisplayed;
+
+  console.log(index);
+  if (index < arr.length) {
     const loadMore = document.createElement("button");
     loadMore.textContent = "Load More";
     loadMore.classList.add("load-more", "btn");
-
     section.appendChild(loadMore);
     loadMore.addEventListener("click", () => {
-      buildDisplayGrid(cardBuilder, arr, section);
+      buildDisplayGrid(cardBuilder, arr, section, index);
       loadMore.remove();
     });
   }
@@ -456,17 +455,36 @@ const navlinks = document.querySelectorAll(navlink);
 
 for (const elm of navlinks) {
   elm.addEventListener("click", () => {
-    if (this.classList.contains(active)) {
+    if (elm.classList.contains(active)) {
       return; // Do nothing if already active
     }
+    theGrid.innerHTML = "";
 
-    setActive(this, navlink);
-
-    const linkId = this.id;
-    if (linkId == "getPlaylists") {
+    setActive(elm, navlink);
+    const linkId = elm.id;
+    if (linkId === "getPlaylists") {
       buildDisplayGrid(playlistCardBuilder, playlistsArr, theGrid);
+    } else if (linkId === "getFavorites") {
+      const currentFavorites =
+        JSON.parse(localStorage.getItem("favorite-playlists")) || [];
+      if (currentFavorites.length === 0) {
+        noResultsMessage(theGrid, "Try adding some playlists to Favorites!");
+      }
+      const displayFavsArray = playlistsArr.filter((playlist) =>
+        filterByFavorite(playlist, currentFavorites)
+      );
+      buildDisplayGrid(playlistCardBuilder, displayFavsArray, theGrid);
     }
   });
+}
+
+function filterByFavorite(playlist, favArr) {
+  for (let id of favArr) {
+    if (playlist.id === id) {
+      return true;
+    }
+  }
+  return false;
 }
 
 const setActive = (elm, selector) => {
@@ -476,3 +494,14 @@ const setActive = (elm, selector) => {
   }
   elm.classList.add(active);
 };
+
+//Empty Set Notification
+
+function noResultsMessage(section, message) {
+  //let's user know there are no results
+  const messageBox = document.createElement("div");
+  messageBox.classList.add("no-results");
+  messageBox.textContent = `Uh-Oh! Looks like there's nothing here! ${message}`;
+
+  section.append(messageBox);
+}
