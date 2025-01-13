@@ -108,3 +108,11 @@ ul.navbar li:hover {
   display: flex;
   justify-content: space-between;
 }
+
+/*Footer*/
+
+footer {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+}

@@ -8,6 +8,7 @@ const authorizationEndpoint = "https://accounts.spotify.com/authorize";
 const tokenEndpoint = "https://accounts.spotify.com/api/token";
 const scope =
   "user-read-private user-read-email user-top-read playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-modify user-library-read ugc-image-upload";
+const userProfileEndpoint = "https://api.spotify.com/v1/me";
 
 //DOM Variables
 const loginModal = document.getElementById("login");
@@ -46,10 +47,6 @@ const code = args.get("code");
 console.log("Authorization Code: ", code);
 
 window.onload = function () {
-  const isLoggedIn = localStorage.getItem("isLoggedIn");
-  if (!isLoggedIn) {
-    loginModal.classList.add("visible");
-  }
   const params = new URLSearchParams(window.location.search);
   const code = params.get("code"); // Extract the authorization code from the URL
 
@@ -70,13 +67,22 @@ window.onload = function () {
     if (codeVerifier) {
       // Now exchange the code for an access token
       exchangeCodeForToken(code)
-        .then(() => getUserProfile())
-        .then((name) => setupUi(name));
+        .then(() => fetchData(userProfileEndpoint))
+        .then((data) => {
+          localStorage.setItem("Id", data.id);
+          loginModal.classList.remove("visible");
+          setupUi(data.display_name);
+        });
     } else {
       console.error("Code verifier not found.");
     }
   } else {
-    console.error("No authorization code found in the URL.");
+    checkTokenAndRefresh().then((data) => {
+      console.log(data);
+      localStorage.setItem("Id", data.id);
+      loginModal.classList.remove("visible");
+      setupUi(data.display_name);
+    });
   }
 };
 
@@ -107,7 +113,7 @@ async function exchangeCodeForToken(authCode) {
         console.log("Access Token:", data.access_token);
         localStorage.setItem("access_token", data.access_token);
         localStorage.setItem("expiry", Date.now());
-        localStorage.setItem("refreshToken", data.refresh_token);
+        localStorage.setItem("refresh_token", data.refresh_token);
       } else {
         console.error("Failed to obtain access token.");
       }
@@ -180,7 +186,7 @@ function isAccessTokenExpired() {
 }
 
 async function getRefreshToken() {
-  const refreshToken = localStorage.getItem("refreshToken");
+  const refreshToken = localStorage.getItem("refresh_token");
 
   const payload = {
     method: "POST",
@@ -193,12 +199,52 @@ async function getRefreshToken() {
       client_id: clientId,
     }),
   };
-  const body = await fetch(tokenEndpoint, payload);
-  const response = await body.json();
+  const body = await fetch(tokenEndpoint, payload)
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.accessToken) {
+        // Save the new access token in localStorage
+        localStorage.setItem("access_token", data.accessToken);
+        localStorage.setItem("refresh_token", data.refreshToken);
+        console.log("Access token refreshed");
+      } else {
+        throw new Error("Unable to refresh access token");
+      }
+    })
+    .catch((error) => {
+      console.error("Error refreshing access token:", error);
+      // Clear tokens and log the user out
+      localStorage.clear();
+      //window.location.reload(); // Refresh the page
+    });
+}
 
-  localStorage.setItem("access_token", response.accessToken);
-  if (response.refreshToken) {
-    localStorage.setItem("refresh_token", response.refreshToken);
+async function checkTokenAndRefresh() {
+  const accessToken = localStorage.getItem("access_token");
+  const refreshToken = localStorage.getItem("refresh_token");
+  console.log(accessToken, refreshToken);
+
+  // If no access token or refresh token, log the user out
+  if (!accessToken || !refreshToken) {
+    console.log("No token found. Logging out...");
+    localStorage.clear();
+    loginModal.classList.add("visible"); // Refresh the page
+    return null; // Explicitly return null when no tokens are found
+  }
+
+  try {
+    const response = await fetchData(userProfileEndpoint);
+    if (response) {
+      console.log("Token is Valid");
+      return response; // Return the valid response
+    } else {
+      throw new Error("Token Invalid or Expired");
+    }
+  } catch (error) {
+    console.error("Token validation failed:", error);
+    // If token is expired, attempt to refresh it
+    await getRefreshToken(); // Assuming this function also performs some async operation
+    return null; // Return null or any other value based on what you expect after the refresh attempt
   }
 }
 
@@ -215,41 +261,18 @@ async function refreshToken() {
   if (isAccessTokenExpired()) {
     //check token valid
     console.log("Access token expired. Refreshing token...");
-    await refreshAccessToken(); // Refresh token if expired
+    await getRefreshToken(); // Refresh token if expired
   }
 }
 
 //Welcome Header
 function setupUi(userName) {
-  localStorage.setItem("isLoggedIn", "true");
   loginModal.classList.remove("visible");
   const welcomeUser = document.getElementById("welcomeUser");
   welcomeUser.textContent = "Hello, " + userName;
   getUserPlaylists().then((data) => {
     buildDisplayGrid(playlistCardBuilder, data, theGrid);
   });
-}
-
-//API Calls
-const userProfileEndpoint = "https://api.spotify.com/v1/me";
-
-//Get User Profile
-async function getUserProfile() {
-  try {
-    // Refresh token before making the request if needed
-    await refreshToken();
-    const accessToken = localStorage.getItem("access_token");
-    const data = await fetchData(userProfileEndpoint, {
-      headers: { Authorization: "Bearer " + accessToken },
-    });
-
-    // Save relevant profile data to localStorage
-    localStorage.setItem("Id", data.id);
-    const userName = data.display_name;
-    return userName;
-  } catch (error) {
-    console.error("Failed to get user profile", error);
-  }
 }
 
 //Fetch Function
@@ -297,7 +320,6 @@ async function getUserPlaylistById(id) {
 
   try {
     const playlistData = await fetchData(endpoint);
-    console.log(playlistData);
     return playlistData;
   } catch (error) {
     console.error("Failed to find playlist", error);
@@ -323,7 +345,6 @@ function playlistCardBuilder(playlist) {
   const card = document.createElement("div");
   card.classList.add("playlist-card");
   card.setAttribute("data-id", playlist.id);
-
   const cardBody = document.createElement("div");
   cardBody.classList.add("card-body");
 
@@ -440,8 +461,15 @@ function limitString(str, limit, indicator = "...") {
 
 const maxDisplayed = 30;
 
-function buildDisplayGrid(cardBuilder, arr, section, index = 0) {
+function buildDisplayGrid(
+  cardBuilder,
+  arr,
+  section,
+  index = 0,
+  maxDisplayed = 30
+) {
   console.log(index);
+
   arr.slice(index, index + maxDisplayed).forEach((item) => {
     section.append(cardBuilder(item));
     console.log(item.name);
@@ -449,33 +477,237 @@ function buildDisplayGrid(cardBuilder, arr, section, index = 0) {
 
   index += maxDisplayed;
 
-  console.log(index);
+  //Load More Logic
   if (index < arr.length) {
     const loadMore = document.createElement("button");
     loadMore.textContent = "Load More";
     loadMore.classList.add("load-more", "btn");
     section.appendChild(loadMore);
+
+    // Add an event listener for the "Load More" button
     loadMore.addEventListener("click", () => {
-      buildDisplayGrid(cardBuilder, arr, section, index);
-      loadMore.remove();
+      buildDisplayGrid(cardBuilder, arr, section, index, maxDisplayed);
+      loadMore.remove(); // Remove the "Load More" button after clicking
     });
   }
-}
 
-//PLaylist Track Modal
-const playlistCards = document.querySelectorAll("[data-id]");
+  //Card Click Handling
+  section.addEventListener("click", (e) => {
+    const card = e.target.closest(".playlist-card");
 
-for (let elm of playlistCards) {
-  elm.addEventListener("click", (e) => {
-    const playlist = e.target;
-    const playlistId = playlist.getAttribute("[data-id]");
-    getUserPlaylistById(playlistId).then((playlist) =>
-      tracklistModalBuilder(playlist)
-    );
+    if (card) {
+      const id = card.getAttribute("data-id");
+      const modalSection = document.querySelector(".main");
+      console.log("playlist Id: " + id);
+
+      // Fetch and append the playlist modal to the section
+      getUserPlaylistById(id).then((playlist) => {
+        modalSection.append(tracklistModalBuilder(playlist));
+      });
+    }
   });
 }
 
-function tracklistModalBuilder(playlist) {}
+//PLaylist Track Modal
+
+function tracklistModalBuilder(playlist) {
+  const tracklistModal = document.createElement("div");
+  tracklistModal.classList.add("tracklist-modal");
+
+  // Tracklist Head
+  const tracklistHeadContainer = document.createElement("div");
+  tracklistHeadContainer.classList.add("tracklist-head-container");
+
+  const headImgWrapper = document.createElement("div");
+  headImgWrapper.classList.add("head-img-wrapper");
+
+  const headImg = document.createElement("img"); // playlist Img
+  headImg.classList.add("playlist-head-img");
+  if (
+    playlist.images &&
+    playlist.images.length > 1 &&
+    playlist.images[1] &&
+    playlist.images[1].url
+  ) {
+    headImg.setAttribute("src", playlist.images[1].url);
+  } else if (
+    playlist.images &&
+    playlist.images.length > 0 &&
+    playlist.images[0] &&
+    playlist.images[0].url
+  ) {
+    headImg.setAttribute("src", playlist.images[0].url);
+  } else {
+    headImg.setAttribute("src", "Assets/Image-not-found.png");
+  }
+
+  headImg.setAttribute("alt", "Playlist Mosaic");
+
+  headImgWrapper.append(headImg);
+
+  const headContentContainer = document.createElement("div");
+  headContentContainer.classList.add("head-content-container");
+
+  const headerTitleContainer = document.createElement("div"); // Title Container
+  headerTitleContainer.classList.add("header-title-container");
+  const playlistTitle = document.createElement("span"); // Title
+  playlistTitle.textContent = playlist.name; // Assuming playlist has a name property
+  const favoriteBtn = document.createElement("i");
+  favoriteBtn.classList.add("fa-regular", "fa-heart"); // Favorite Button
+  favoriteBtn.style.color = "red";
+
+  // Favorite Button Logic
+  favoriteBtn.addEventListener("click", (e) => {
+    const currentPlaylistFavs =
+      JSON.parse(localStorage.getItem("favorite-playlists")) || [];
+    const element = e.target;
+    const playlistId = element.closest("[data-id]").getAttribute("data-id");
+    console.log(playlistId);
+    // Check if the playlistId is in the favorites list
+    if (isFavoritePlaylist(playlistId)) {
+      // Remove the playlistId from the array
+      const index = currentPlaylistFavs.indexOf(playlistId);
+      if (index !== -1) {
+        currentPlaylistFavs.splice(index, 1); // Remove from the array
+      }
+      // Toggle the icon class
+      element.classList.remove("fa-solid");
+      element.classList.add("fa-regular");
+    } else {
+      // Add the playlistId to the array
+      if (!currentPlaylistFavs.includes(playlistId)) {
+        currentPlaylistFavs.push(playlistId); // Only add if not already present
+      }
+      // Toggle the icon class
+      element.classList.remove("fa-regular");
+      element.classList.add("fa-solid");
+    }
+
+    // Save the updated list back to localStorage
+    localStorage.setItem(
+      "favorite-playlists",
+      JSON.stringify(currentPlaylistFavs)
+    );
+  });
+
+  headerTitleContainer.append(playlistTitle, favoriteBtn);
+
+  const headBodyContainer = document.createElement("div");
+  headBodyContainer.classList.add("head-body-container");
+
+  const headBodyLeft = document.createElement("div"); // LEFT
+  headBodyLeft.classList.add("head-body-left");
+  const owner = document.createElement("span");
+  owner.textContent = "Owner: " + playlist.owner.display_name; // Owner name
+  const trackCount = document.createElement("span");
+  trackCount.textContent = "tracks: " + playlist.tracks.total; // Track Count
+
+  headBodyLeft.append(owner, trackCount);
+
+  const headBodyRight = document.createElement("div"); // RIGHT
+  headBodyRight.classList.add("head-body-right");
+  const followers = document.createElement("span");
+  followers.textContent = "Followers: " + playlist.followers.total; // Followers
+  const publicFlag = document.createElement("span");
+  const isPublic = (x) => {
+    if (playlist.public === false) {
+      publicFlag.textContent = "Private"; // Private
+    } else {
+      publicFlag.textContent = "Public"; // Public
+    }
+  };
+  isPublic(playlist.public);
+
+  // Build Tracklist Head
+  headBodyRight.append(followers, publicFlag);
+
+  headBodyContainer.append(headBodyLeft, headBodyRight);
+
+  headContentContainer.append(headerTitleContainer, headBodyContainer);
+
+  tracklistHeadContainer.append(headImgWrapper, headContentContainer);
+
+  // Tracklist Body
+  const tracklistContainer = document.createElement("div");
+  tracklistContainer.classList.add("tracklist-container");
+
+  const tracklist = playlist.tracks.items;
+
+  tracklist.forEach((track) =>
+    tracklistContainer.append(buildTrackItem(track))
+  );
+
+  // Construct Modal
+  tracklistModal.append(tracklistHeadContainer, tracklistContainer);
+
+  return tracklistModal;
+}
+
+function buildTrackItem(track) {
+  const trackContainer = document.createElement("div");
+  trackContainer.classList.add("track-container");
+
+  const trackImgWrapper = document.createElement("div");
+  trackImgWrapper.classList.add("track-img-wrapper");
+
+  const trackImg = document.createElement("img");
+  trackImg.classList.add("track-img");
+  if (
+    track.track.images &&
+    track.track.images.length > 1 &&
+    track.track.images[1] &&
+    track.track.images[1].url
+  ) {
+    trackImg.setAttribute("src", track.track.images[1].url);
+  } else if (
+    track.track.images &&
+    track.track.images.length > 0 &&
+    track.track.images[0] &&
+    track.track.images[0].url
+  ) {
+    trackImg.setAttribute("src", track.track.images[0].url);
+  } else {
+    trackImg.setAttribute("src", "Assets/Image-not-found.png");
+  }
+
+  trackImg.setAttribute("alt", "Track Image");
+
+  trackImgWrapper.append(trackImg);
+
+  const trackContentContainer = document.createElement("div");
+  trackContentContainer.classList.add("track-content-container");
+
+  const trackInfo = document.createElement("div");
+  trackInfo.classList.add("track-info");
+  const trackTitle = document.createElement("span");
+  trackTitle.textContent = track.track.name;
+  const trackArtist = document.createElement("span");
+  trackArtist.textContent = track.track.artists
+    .map((artist) => artist.name)
+    .join(", ");
+  const trackAlbum = document.createElement("span");
+  trackAlbum.textContent = track.track.album.name;
+
+  trackInfo.append(trackTitle, trackArtist, trackAlbum);
+
+  const trackData = document.createElement("div");
+  trackData.classList.add("track-data");
+
+  const trackLength = document.createElement("span");
+  const trackDurationSeconds = track.track.duration_ms / 1000; // Fix: Correct duration field
+  const trackDurationRemainder = trackDurationSeconds % 60;
+  trackLength.textContent = `${Math.floor(
+    trackDurationSeconds / 60
+  )}:${trackDurationRemainder.toString().padStart(2, "0")}`;
+
+  trackData.append(trackLength);
+
+  trackContentContainer.append(trackInfo, trackData);
+
+  trackContainer.append(trackImgWrapper, trackContentContainer);
+
+  return trackContainer;
+}
 
 //NavLinks
 
@@ -538,4 +770,37 @@ function noResultsMessage(section, message) {
   messageBox.textContent = `Uh-Oh! Looks like there's nothing here! ${message}`;
 
   section.append(messageBox);
+}
+
+function favoriteButtonLogic() {
+  const currentPlaylistFavs =
+    JSON.parse(localStorage.getItem("favorite-playlists")) || [];
+  const element = e.target;
+  const playlistId = element.closest("[data-id]").getAttribute("data-id");
+  console.log(playlistId);
+  // Check if the playlistId is in the favorites list
+  if (isFavoritePlaylist(playlistId)) {
+    // Remove the playlistId from the array
+    const index = currentPlaylistFavs.indexOf(playlistId);
+    if (index !== -1) {
+      currentPlaylistFavs.splice(index, 1); // Remove from the array
+    }
+    // Toggle the icon class
+    element.classList.remove("fa-solid");
+    element.classList.add("fa-regular");
+  } else {
+    // Add the playlistId to the array
+    if (!currentPlaylistFavs.includes(playlistId)) {
+      currentPlaylistFavs.push(playlistId); // Only add if not already present
+    }
+    // Toggle the icon class
+    element.classList.remove("fa-regular");
+    element.classList.add("fa-solid");
+  }
+
+  // Save the updated list back to localStorage
+  localStorage.setItem(
+    "favorite-playlists",
+    JSON.stringify(currentPlaylistFavs)
+  );
 }
