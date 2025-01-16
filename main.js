@@ -481,31 +481,7 @@ function buildDisplayGrid(
       loadMore.remove(); // Remove the "Load More" button after clicking
     });
   }
-
-  //Card Click Handling
-  section.addEventListener("click", (e) => {
-    const card = e.target.closest(".playlist-card");
-
-    if (card) {
-      const playlistId = card.getAttribute("data-id");
-      const modalSection = document.querySelector(".site-wrapper");
-      console.log("playlist Id: " + playlistId);
-
-      // Fetch and append the playlist modal to the section
-      getUserPlaylistById(playlistId)
-        .then((playlist) => {
-          console.log(playlist);
-          const playlistModal = tracklistModalBuilder(playlist);
-          modalSection.append(playlistModal);
-          return playlistModal;
-        })
-        .then((modal) => {
-          modal.classList.add("is-visible");
-        });
-    }
-  });
 }
-
 //PLaylist Track Modal
 
 function tracklistModalBuilder(playlist) {
@@ -562,7 +538,7 @@ function tracklistModalBuilder(playlist) {
   }
 
   const closeIcon = document.createElement("i");
-  closeIcon.classList.add("fas", "fa-times");
+  closeIcon.classList.add("fas", "fa-times", "closeBtn");
   closeIcon.setAttribute("data-close", "");
 
   headerTitleContainer.append(playlistTitle, favoriteBtn, closeIcon);
@@ -759,11 +735,11 @@ function isFavoritePlaylist(id) {
 
 document.body.addEventListener("click", function (e) {
   // Check if the clicked element is a favorite button
-  if (e.target.closest(".favoriteBtn")) {
+  const element = e.target;
+  if (element.closest(".favoriteBtn")) {
+    e.stopPropagation();
     const currentPlaylistFavs =
       JSON.parse(localStorage.getItem("favorite-playlists")) || [];
-
-    const element = e.target;
 
     const playlist = e.target.closest("[data-id]");
     const playlistId = playlist.getAttribute("data-id");
@@ -791,5 +767,19 @@ document.body.addEventListener("click", function (e) {
       "favorite-playlists",
       JSON.stringify(currentPlaylistFavs)
     );
+  } else if (element.closest(".playlist-card")) {
+    const playlistId = element.closest("[data-id]").getAttribute("data-id");
+    getUserPlaylistById(playlistId)
+      .then((playlist) => {
+        console.log(playlist);
+        const playlistModal = tracklistModalBuilder(playlist);
+        document.body.append(playlistModal);
+        return playlistModal;
+      })
+      .then((modal) => {
+        modal.classList.add("is-visible");
+      });
+  } else if (element.closest(".closeBtn")) {
+    element.closest(".tracklist-modal").remove();
   }
 });

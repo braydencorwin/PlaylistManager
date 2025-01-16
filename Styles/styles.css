@@ -169,6 +169,11 @@ ul.navbar li:hover {
   cursor: pointer;
 }
 
+.favoriteBtn {
+  font-size: 25px;
+  padding: 2px;
+}
+
 .head-body-container {
   display: flex;
 }
