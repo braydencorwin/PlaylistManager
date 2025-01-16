@@ -598,67 +598,78 @@ function tracklistModalBuilder(playlist) {
 function buildTrackItem(track) {
   const trackContainer = document.createElement("div");
   trackContainer.classList.add("track-container");
+  if (track.track) {
+    const trackImgWrapper = document.createElement("div");
+    trackImgWrapper.classList.add("track-img-wrapper");
 
-  const trackImgWrapper = document.createElement("div");
-  trackImgWrapper.classList.add("track-img-wrapper");
+    const trackImg = document.createElement("img");
+    trackImg.classList.add("track-img");
+    if (
+      track.track && // Check if track.track is defined
+      track.track.album && // Check if track.track.album is defined
+      track.track.album.images && // Check if images array exists
+      Array.isArray(track.track.album.images) && // Check if images is an array
+      track.track.album.images.length > 1 && // Check if there are at least 2 images
+      track.track.album.images[1] && // Ensure the second image exists
+      track.track.album.images[1].url // Ensure the second image has a URL
+    ) {
+      trackImg.setAttribute("src", track.track.album.images[1].url);
+    } else if (
+      track.track && // Check if track.track is defined
+      track.track.album && // Check if track.track.album is defined
+      track.track.album.images && // Check if images array exists
+      Array.isArray(track.track.album.images) && // Check if images is an array
+      track.track.album.images.length > 0 && // Check if there is at least 1 image
+      track.track.album.images[0] && // Ensure the first image exists
+      track.track.album.images[0].url // Ensure the first image has a URL
+    ) {
+      trackImg.setAttribute("src", track.track.album.images[0].url);
+    } else {
+      trackImg.setAttribute("src", "Assets/Image-not-found.png");
+    }
 
-  const trackImg = document.createElement("img");
-  trackImg.classList.add("track-img");
-  if (
-    track.track.album.images &&
-    track.track.album.images.length > 1 &&
-    track.track.album.images[1] &&
-    track.track.album.images[1].url
-  ) {
-    trackImg.setAttribute("src", track.track.album.images[1].url);
-  } else if (
-    track.track.album.images &&
-    track.track.album.images.length > 0 &&
-    track.track.album.images[0] &&
-    track.track.album.images[0].url
-  ) {
-    trackImg.setAttribute("src", track.track.album.images[0].url);
+    trackImg.setAttribute("alt", "Track Image");
+
+    trackImgWrapper.append(trackImg);
+
+    const trackContentContainer = document.createElement("div");
+    trackContentContainer.classList.add("track-content-container");
+
+    const trackInfo = document.createElement("div");
+    trackInfo.classList.add("track-info");
+    const trackTitle = document.createElement("span");
+    trackTitle.textContent = track.track.name;
+    const trackArtist = document.createElement("span");
+    trackArtist.textContent = track.track.artists
+      .map((artist) => artist.name)
+      .join(", ");
+    const trackAlbum = document.createElement("span");
+    trackAlbum.textContent = track.track.album.name;
+
+    trackInfo.append(trackTitle, trackArtist, trackAlbum);
+
+    const trackData = document.createElement("div");
+    trackData.classList.add("track-data");
+
+    const trackLength = document.createElement("span");
+    const trackDurationSeconds = track.track.duration_ms / 1000; // Fix: Correct duration field
+    const trackDurationRemainder = trackDurationSeconds % 60;
+    trackLength.textContent = `${Math.floor(
+      trackDurationSeconds / 60
+    )}:${trackDurationRemainder.toString().padStart(2, "0")}`;
+
+    trackData.append(trackLength);
+
+    trackContentContainer.append(trackInfo, trackData);
+
+    trackContainer.append(trackImgWrapper, trackContentContainer);
+    return trackContainer;
   } else {
-    trackImg.setAttribute("src", "Assets/Image-not-found.png");
+    const errorMessage = document.createElement("span");
+    errorMessage.textContent = "Unable to Find this Track :(";
+    trackContainer.append(errorMessage);
+    return trackContainer;
   }
-
-  trackImg.setAttribute("alt", "Track Image");
-
-  trackImgWrapper.append(trackImg);
-
-  const trackContentContainer = document.createElement("div");
-  trackContentContainer.classList.add("track-content-container");
-
-  const trackInfo = document.createElement("div");
-  trackInfo.classList.add("track-info");
-  const trackTitle = document.createElement("span");
-  trackTitle.textContent = track.track.name;
-  const trackArtist = document.createElement("span");
-  trackArtist.textContent = track.track.artists
-    .map((artist) => artist.name)
-    .join(", ");
-  const trackAlbum = document.createElement("span");
-  trackAlbum.textContent = track.track.album.name;
-
-  trackInfo.append(trackTitle, trackArtist, trackAlbum);
-
-  const trackData = document.createElement("div");
-  trackData.classList.add("track-data");
-
-  const trackLength = document.createElement("span");
-  const trackDurationSeconds = track.track.duration_ms / 1000; // Fix: Correct duration field
-  const trackDurationRemainder = trackDurationSeconds % 60;
-  trackLength.textContent = `${Math.floor(
-    trackDurationSeconds / 60
-  )}:${trackDurationRemainder.toString().padStart(2, "0")}`;
-
-  trackData.append(trackLength);
-
-  trackContentContainer.append(trackInfo, trackData);
-
-  trackContainer.append(trackImgWrapper, trackContentContainer);
-
-  return trackContainer;
 }
 
 //NavLinks
