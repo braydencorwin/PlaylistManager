@@ -215,7 +215,7 @@ async function getRefreshToken() {
       console.error("Error refreshing access token:", error);
       // Clear tokens and log the user out
       localStorage.clear();
-      //window.location.reload(); // Refresh the page
+      window.location.reload(); // Refresh the page
     });
 }
 
@@ -236,15 +236,14 @@ async function checkTokenAndRefresh() {
     const response = await fetchData(userProfileEndpoint);
     if (response) {
       console.log("Token is Valid");
-      return response; // Return the valid response
+      return response;
     } else {
       throw new Error("Token Invalid or Expired");
     }
   } catch (error) {
     console.error("Token validation failed:", error);
-    // If token is expired, attempt to refresh it
-    await getRefreshToken(); // Assuming this function also performs some async operation
-    return null; // Return null or any other value based on what you expect after the refresh attempt
+    await getRefreshToken();
+    return null;
   }
 }
 
@@ -326,14 +325,6 @@ async function getUserPlaylistById(id) {
   }
 }
 
-//Favorites Handling
-
-function isFavoritePlaylist(id) {
-  const currentPlaylistFavs =
-    JSON.parse(localStorage.getItem("favorite-playlists")) || [];
-  return currentPlaylistFavs.includes(id);
-}
-
 //DOM Manipulation
 const theGrid = document.getElementById("display-grid");
 
@@ -396,41 +387,41 @@ function playlistCardBuilder(playlist) {
   trackCount.textContent = `Tracks: ${playlist.tracks.total}`;
 
   const favoriteBtn = document.createElement("i");
-  favoriteBtn.classList.add("fa-regular", "fa-heart");
+  favoriteBtn.classList.add("fa-regular", "fa-heart", "favoriteBtn");
   favoriteBtn.style.color = "red";
 
-  favoriteBtn.addEventListener("click", (e) => {
-    const currentPlaylistFavs =
-      JSON.parse(localStorage.getItem("favorite-playlists")) || [];
-    const element = e.target;
-    const playlistId = element.closest("[data-id]").getAttribute("data-id");
-    console.log(playlistId);
-    // Check if the playlistId is in the favorites list
-    if (isFavoritePlaylist(playlistId)) {
-      // Remove the playlistId from the array
-      const index = currentPlaylistFavs.indexOf(playlistId);
-      if (index !== -1) {
-        currentPlaylistFavs.splice(index, 1); // Remove from the array
-      }
-      // Toggle the icon class
-      element.classList.remove("fa-solid");
-      element.classList.add("fa-regular");
-    } else {
-      // Add the playlistId to the array
-      if (!currentPlaylistFavs.includes(playlistId)) {
-        currentPlaylistFavs.push(playlistId); // Only add if not already present
-      }
-      // Toggle the icon class
-      element.classList.remove("fa-regular");
-      element.classList.add("fa-solid");
-    }
+  // favoriteBtn.addEventListener("click", (e) => {
+  //   const currentPlaylistFavs =
+  //     JSON.parse(localStorage.getItem("favorite-playlists")) || [];
+  //   const element = e.target;
+  //   const playlistId = element.closest("[data-id]").getAttribute("data-id");
+  //   console.log(playlistId);
+  //   Check if the playlistId is in the favorites list
+  //   if (isFavoritePlaylist(playlistId)) {
+  //     // Remove the playlistId from the array
+  //     const index = currentPlaylistFavs.indexOf(playlistId);
+  //     if (index !== -1) {
+  //       currentPlaylistFavs.splice(index, 1); // Remove from the array
+  //     }
+  //     // Toggle the icon class
+  //     element.classList.remove("fa-solid");
+  //     element.classList.add("fa-regular");
+  //   } else {
+  //     // Add the playlistId to the array
+  //     if (!currentPlaylistFavs.includes(playlistId)) {
+  //       currentPlaylistFavs.push(playlistId); // Only add if not already present
+  //     }
+  //     // Toggle the icon class
+  //     element.classList.remove("fa-regular");
+  //     element.classList.add("fa-solid");
+  //   }
 
-    // Save the updated list back to localStorage
-    localStorage.setItem(
-      "favorite-playlists",
-      JSON.stringify(currentPlaylistFavs)
-    );
-  });
+  //   // Save the updated list back to localStorage
+  //   localStorage.setItem(
+  //     "favorite-playlists",
+  //     JSON.stringify(currentPlaylistFavs)
+  //   );
+  // })
 
   if (isFavoritePlaylist(playlist.id)) {
     favoriteBtn.classList.remove("fa-regular");
@@ -496,14 +487,21 @@ function buildDisplayGrid(
     const card = e.target.closest(".playlist-card");
 
     if (card) {
-      const id = card.getAttribute("data-id");
-      const modalSection = document.querySelector(".main");
-      console.log("playlist Id: " + id);
+      const playlistId = card.getAttribute("data-id");
+      const modalSection = document.querySelector(".site-wrapper");
+      console.log("playlist Id: " + playlistId);
 
       // Fetch and append the playlist modal to the section
-      getUserPlaylistById(id).then((playlist) => {
-        modalSection.append(tracklistModalBuilder(playlist));
-      });
+      getUserPlaylistById(playlistId)
+        .then((playlist) => {
+          console.log(playlist);
+          const playlistModal = tracklistModalBuilder(playlist);
+          modalSection.append(playlistModal);
+          return playlistModal;
+        })
+        .then((modal) => {
+          modal.classList.add("is-visible");
+        });
     }
   });
 }
@@ -513,6 +511,8 @@ function buildDisplayGrid(
 function tracklistModalBuilder(playlist) {
   const tracklistModal = document.createElement("div");
   tracklistModal.classList.add("tracklist-modal");
+  tracklistModal.setAttribute("data-id", playlist.id);
+  tracklistModal.setAttribute("id", playlist.id);
 
   // Tracklist Head
   const tracklistHeadContainer = document.createElement("div");
@@ -550,47 +550,22 @@ function tracklistModalBuilder(playlist) {
 
   const headerTitleContainer = document.createElement("div"); // Title Container
   headerTitleContainer.classList.add("header-title-container");
-  const playlistTitle = document.createElement("span"); // Title
+  const playlistTitle = document.createElement("h3"); // Title
   playlistTitle.textContent = playlist.name; // Assuming playlist has a name property
   const favoriteBtn = document.createElement("i");
-  favoriteBtn.classList.add("fa-regular", "fa-heart"); // Favorite Button
+  favoriteBtn.classList.add("fa-regular", "fa-heart", "favoriteBtn"); // Favorite Button
   favoriteBtn.style.color = "red";
 
-  // Favorite Button Logic
-  favoriteBtn.addEventListener("click", (e) => {
-    const currentPlaylistFavs =
-      JSON.parse(localStorage.getItem("favorite-playlists")) || [];
-    const element = e.target;
-    const playlistId = element.closest("[data-id]").getAttribute("data-id");
-    console.log(playlistId);
-    // Check if the playlistId is in the favorites list
-    if (isFavoritePlaylist(playlistId)) {
-      // Remove the playlistId from the array
-      const index = currentPlaylistFavs.indexOf(playlistId);
-      if (index !== -1) {
-        currentPlaylistFavs.splice(index, 1); // Remove from the array
-      }
-      // Toggle the icon class
-      element.classList.remove("fa-solid");
-      element.classList.add("fa-regular");
-    } else {
-      // Add the playlistId to the array
-      if (!currentPlaylistFavs.includes(playlistId)) {
-        currentPlaylistFavs.push(playlistId); // Only add if not already present
-      }
-      // Toggle the icon class
-      element.classList.remove("fa-regular");
-      element.classList.add("fa-solid");
-    }
+  if (isFavoritePlaylist(playlist.id)) {
+    favoriteBtn.classList.remove("fa-regular");
+    favoriteBtn.classList.add("fa-solid");
+  }
 
-    // Save the updated list back to localStorage
-    localStorage.setItem(
-      "favorite-playlists",
-      JSON.stringify(currentPlaylistFavs)
-    );
-  });
+  const closeIcon = document.createElement("i");
+  closeIcon.classList.add("fas", "fa-times");
+  closeIcon.setAttribute("data-close", "");
 
-  headerTitleContainer.append(playlistTitle, favoriteBtn);
+  headerTitleContainer.append(playlistTitle, favoriteBtn, closeIcon);
 
   const headBodyContainer = document.createElement("div");
   headBodyContainer.classList.add("head-body-container");
@@ -632,9 +607,10 @@ function tracklistModalBuilder(playlist) {
   tracklistContainer.classList.add("tracklist-container");
 
   const tracklist = playlist.tracks.items;
+  console.log(tracklist);
 
   tracklist.forEach((track) =>
-    tracklistContainer.append(buildTrackItem(track))
+    tracklistContainer.appendChild(buildTrackItem(track))
   );
 
   // Construct Modal
@@ -653,19 +629,19 @@ function buildTrackItem(track) {
   const trackImg = document.createElement("img");
   trackImg.classList.add("track-img");
   if (
-    track.track.images &&
-    track.track.images.length > 1 &&
-    track.track.images[1] &&
-    track.track.images[1].url
+    track.track.album.images &&
+    track.track.album.images.length > 1 &&
+    track.track.album.images[1] &&
+    track.track.album.images[1].url
   ) {
-    trackImg.setAttribute("src", track.track.images[1].url);
+    trackImg.setAttribute("src", track.track.album.images[1].url);
   } else if (
-    track.track.images &&
-    track.track.images.length > 0 &&
-    track.track.images[0] &&
-    track.track.images[0].url
+    track.track.album.images &&
+    track.track.album.images.length > 0 &&
+    track.track.album.images[0] &&
+    track.track.album.images[0].url
   ) {
-    trackImg.setAttribute("src", track.track.images[0].url);
+    trackImg.setAttribute("src", track.track.album.images[0].url);
   } else {
     trackImg.setAttribute("src", "Assets/Image-not-found.png");
   }
@@ -772,35 +748,48 @@ function noResultsMessage(section, message) {
   section.append(messageBox);
 }
 
-function favoriteButtonLogic() {
+//Favorite Button
+
+// Check if a playlist is marked as favorite
+function isFavoritePlaylist(id) {
   const currentPlaylistFavs =
     JSON.parse(localStorage.getItem("favorite-playlists")) || [];
-  const element = e.target;
-  const playlistId = element.closest("[data-id]").getAttribute("data-id");
-  console.log(playlistId);
-  // Check if the playlistId is in the favorites list
-  if (isFavoritePlaylist(playlistId)) {
-    // Remove the playlistId from the array
-    const index = currentPlaylistFavs.indexOf(playlistId);
-    if (index !== -1) {
-      currentPlaylistFavs.splice(index, 1); // Remove from the array
-    }
-    // Toggle the icon class
-    element.classList.remove("fa-solid");
-    element.classList.add("fa-regular");
-  } else {
-    // Add the playlistId to the array
-    if (!currentPlaylistFavs.includes(playlistId)) {
-      currentPlaylistFavs.push(playlistId); // Only add if not already present
-    }
-    // Toggle the icon class
-    element.classList.remove("fa-regular");
-    element.classList.add("fa-solid");
-  }
-
-  // Save the updated list back to localStorage
-  localStorage.setItem(
-    "favorite-playlists",
-    JSON.stringify(currentPlaylistFavs)
-  );
+  return currentPlaylistFavs.includes(id);
 }
+
+document.body.addEventListener("click", function (e) {
+  // Check if the clicked element is a favorite button
+  if (e.target.closest(".favoriteBtn")) {
+    const currentPlaylistFavs =
+      JSON.parse(localStorage.getItem("favorite-playlists")) || [];
+
+    const element = e.target;
+
+    const playlist = e.target.closest("[data-id]");
+    const playlistId = playlist.getAttribute("data-id");
+
+    console.log(playlistId);
+
+    if (isFavoritePlaylist(playlistId)) {
+      const index = currentPlaylistFavs.indexOf(playlistId);
+      if (index !== -1) {
+        currentPlaylistFavs.splice(index, 1);
+      }
+
+      element.classList.remove("fa-solid");
+      element.classList.add("fa-regular");
+    } else {
+      if (!currentPlaylistFavs.includes(playlistId)) {
+        currentPlaylistFavs.push(playlistId);
+      }
+
+      element.classList.remove("fa-regular");
+      element.classList.add("fa-solid");
+    }
+
+    localStorage.setItem(
+      "favorite-playlists",
+      JSON.stringify(currentPlaylistFavs)
+    );
+  }
+});
