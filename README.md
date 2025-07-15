@@ -176,7 +176,7 @@ This project is licensed under the MIT License - see the `LICENSE.txt` file for 
 <!-- CONTACT -->
 ## Contact
 
-Your Name  - bcorwin1@charlotte.edu
+ bcorwin1@charlotte.edu
 
 Project Link: [https://github.com/braydencorwin/PlaylistManager](https://github.com/braydencorwin/PlaylistManager)
 
