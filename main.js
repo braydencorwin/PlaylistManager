@@ -652,7 +652,7 @@ function buildTrackItem(track) {
     trackData.classList.add("track-data");
 
     const trackLength = document.createElement("span");
-    const trackDurationSeconds = track.track.duration_ms / 1000; // Fix: Correct duration field
+    const trackDurationSeconds = Math.floor(track.track.duration_ms / 1000); // Fix: Correct duration field
     const trackDurationRemainder = trackDurationSeconds % 60;
     trackLength.textContent = `${Math.floor(
       trackDurationSeconds / 60
@@ -744,6 +744,8 @@ function isFavoritePlaylist(id) {
   return currentPlaylistFavs.includes(id);
 }
 
+//Click Listener
+
 document.body.addEventListener("click", function (e) {
   // Check if the clicked element is a favorite button
   const element = e.target;
@@ -793,4 +795,17 @@ document.body.addEventListener("click", function (e) {
   } else if (element.closest(".closeBtn")) {
     element.closest(".tracklist-modal").remove();
   }
+});
+
+//Sorting
+
+const sortSelect = document.getElementById("sort-options");
+
+sortSelect.addEventListener("change", function () {
+  theGrid.innerHTML = "";
+  if (sortSelect.value == "track-asc") {
+    playlistsArr.sort((a, b) => a.tracks.total - b.tracks.total);
+  } else playlistsArr.sort((a, b) => b.tracks.total - a.tracks.total);
+  console.log(playlistsArr);
+  buildDisplayGrid(playlistCardBuilder, playlistsArr, theGrid);
 });

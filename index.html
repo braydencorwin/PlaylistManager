@@ -14,8 +14,7 @@
         <h1>Welcome To Playlist Manager!</h1>
         <h3>Sign in with Spotify to continue!</h3>
         <a class="round-pill btn btn-primary" id="spotifyLogin"
-          >Login With Spotify</a
-        >
+          >Login With Spotify</a>
       </div>
 
       <div class="main">
@@ -27,6 +26,14 @@
                 <li><a id="getFavorites" class="navlink">Favorites</a></li>
                 <li><a id="getStats" class="navlink">My Stats</a></li>
                 <li><a id="createPlaylist" class="navlink">Create New</a></li>
+            </div>
+            <div class="sort-options">
+              <label for="sort-options">Sort By:
+              </label>
+              <select  id="sort-options">
+                <option value="track-asc">Track Ascending</option>
+                <option value="track-desc">Track Descending</option>
+              </select>
             </div>
             <div id="display-grid" class="grid display-grid">
                 </div>
