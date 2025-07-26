@@ -265,12 +265,13 @@ async function refreshToken() {
 }
 
 //Welcome Header
+
 function setupUi(userName) {
   loginModal.classList.remove("visible");
   const welcomeUser = document.getElementById("welcomeUser");
   welcomeUser.textContent = "Hello, " + userName;
-  getUserPlaylists().then((data) => {
-    buildDisplayGrid(playlistCardBuilder, data, theGrid);
+  getUserPlaylists().then(() => {
+    buildDisplayGrid(playlistCardBuilder, sortPlaylists(playlistsArr), theGrid);
   });
 }
 
@@ -692,7 +693,11 @@ for (const elm of navlinks) {
       if (playlistsArr.length === 0) {
         noResultsMessage(theGrid, "Try creating some playlists!");
       }
-      buildDisplayGrid(playlistCardBuilder, playlistsArr, theGrid);
+      buildDisplayGrid(
+        playlistCardBuilder,
+        sortPlaylists(playlistsArr),
+        theGrid
+      );
     } else if (linkId === "getFavorites") {
       const currentFavorites =
         JSON.parse(localStorage.getItem("favorite-playlists")) || [];
@@ -798,14 +803,22 @@ document.body.addEventListener("click", function (e) {
 });
 
 //Sorting
-
 const sortSelect = document.getElementById("sort-options");
 
 sortSelect.addEventListener("change", function () {
   theGrid.innerHTML = "";
-  if (sortSelect.value == "track-asc") {
-    playlistsArr.sort((a, b) => a.tracks.total - b.tracks.total);
-  } else playlistsArr.sort((a, b) => b.tracks.total - a.tracks.total);
-  console.log(playlistsArr);
-  buildDisplayGrid(playlistCardBuilder, playlistsArr, theGrid);
+  buildDisplayGrid(playlistCardBuilder, sortPlaylists(playlistsArr), theGrid);
 });
+
+function sortPlaylists(data) {
+  const sortVal = sortSelect.value;
+  const sorted = [...data];
+
+  if (sortVal === "track-asc") {
+    sorted.sort((a, b) => a.tracks.total - b.tracks.total);
+  } else if (sortVal === "track-desc") {
+    sorted.sort((a, b) => b.tracks.total - a.tracks.total);
+  }
+
+  return sorted;
+}
